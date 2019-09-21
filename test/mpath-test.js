@@ -85,6 +85,7 @@ describe('mpath plugin', () => {
         keepAlive: 2000,
         reconnectTries: 30,
         useNewUrlParser: true,
+        useUnifiedTopology: true,
       }
     );
 
