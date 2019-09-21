@@ -337,6 +337,17 @@ describe('mpath plugin', () => {
     });
   });
 
+  describe('virtual field "childrenPath"', () => {
+    it('should equal path for children of doc', () => {
+      africa.childrenPath.should.equal('#af#');
+      europe.childrenPath.should.equal('#eu#');
+      norway.childrenPath.should.equal('#eu#no#');
+      sweden.childrenPath.should.equal('#eu#se#');
+      stockholm.childrenPath.should.equal('#eu#se#sthlm#');
+      skansen.childrenPath.should.equal('#eu#se#sthlm#skansen#');
+    });
+  });
+
   describe('getImmediateChildren()', () => {
     it('using default params', async () => {
       const conditions = {};
