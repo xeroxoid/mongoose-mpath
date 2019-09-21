@@ -78,18 +78,20 @@ describe('mpath plugin', () => {
 
   // Set up the fixture
   before(async () => {
-    dbConnection = await mongoose.connect(
-      'mongodb://localhost:27017/mongoose-path-tree',
-      {
-        connectTimeoutMS: 3000,
-        keepAlive: 2000,
-        reconnectTries: 30,
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-      }
-    );
-
-    Location = mongoose.model('Location', LocationSchema);
+    dbConnection = await mongoose.connect('mongodb://localhost:27017/mongoose-path-tree', {
+      connectTimeoutMS: 3000,
+      keepAlive: 2000,
+      reconnectTries: 30,
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    
+    try {
+      Location = mongoose.model('Location', LocationSchema);
+    } catch (ex) {
+      mongoose.connection.deleteModel('Location');
+      Location = mongoose.model('Location', LocationSchema);
+    }
   });
 
   beforeEach(async () => {
