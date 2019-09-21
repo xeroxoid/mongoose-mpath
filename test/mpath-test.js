@@ -172,8 +172,8 @@ describe('mpath plugin', () => {
     it('should set path', () => {
       africa.path.should.equal('');
       europe.path.should.equal('');
-      norway.path.should.equal('eu');
-      sweden.path.should.equal('eu');
+      norway.path.should.equal('#eu#');
+      sweden.path.should.equal('#eu#');
       stockholm.path.should.equal('#eu#se#');
       skansen.path.should.equal('#eu#se#sthlm#');
     });
@@ -188,10 +188,10 @@ describe('mpath plugin', () => {
       pathObject.should.eql({
         Africa: '',
         Europe: '',
-        Norway: 'eu',
-        Sweden: 'af',
-        Stockholm: 'af#se',
-        Skansen: 'af#se#sthlm',
+        Norway: '#eu#',
+        Sweden: '#af#',
+        Stockholm: '#af#se#',
+        Skansen: '#af#se#sthlm#',
       });
     });
 
