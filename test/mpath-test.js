@@ -104,15 +104,11 @@ describe('mpath plugin', () => {
       const DefaultLocationSchema = new mongoose.Schema({ name: String });
       DefaultLocationSchema.plugin(MpathPlugin);
 
-      const LocationModel = dbConnection.model(
-        'SomeLocation',
-        DefaultLocationSchema
-      );
+      const LocationModel = dbConnection.model('SomeLocation', DefaultLocationSchema);
 
       const schemaPaths = LocationModel.schema.paths;
 
       should.exist(schemaPaths.parent);
-
       should.exist(schemaPaths.path);
     });
 
@@ -131,10 +127,7 @@ describe('mpath plugin', () => {
 
       CustomLocationSchema.plugin(MpathPlugin, pluginOptions);
 
-      const CustomLocationModel = mongoose.model(
-        'SomeOtherLocation',
-        CustomLocationSchema
-      );
+      const CustomLocationModel = mongoose.model('SomeOtherLocation', CustomLocationSchema);
 
       const schemaPaths = CustomLocationModel.schema.paths;
 
@@ -142,17 +135,20 @@ describe('mpath plugin', () => {
       schemaPaths.parent.options.type.should.eql(String);
 
       // check path separator
-      const parentLocation = new CustomLocationModel({ name: 'Super City' });
-      const childLocation = new CustomLocationModel({
-        name: 'Sub City',
-        parent: parentLocation,
+      const world = new CustomLocationModel({ name: 'World' });
+      const europe = new CustomLocationModel({ name: 'Europe', parent: world });
+      const sweden = new CustomLocationModel({
+        name: 'Sweden',
+        parent: europe,
       });
 
-      await parentLocation.save();
-      await childLocation.save();
+      await world.save();
+      await europe.save();
+      await sweden.save();
 
-      const expectedPath = `${parentLocation._id.toString()}|${childLocation._id.toString()}`;
-      childLocation.path.should.equal(expectedPath);
+      world.path.should.equal('');
+      europe.path.should.equal(`|${world._id}|`);
+      sweden.path.should.equal(`|${world._id}|${europe._id}|`);
     });
   });
 
@@ -180,12 +176,12 @@ describe('mpath plugin', () => {
     });
 
     it('should set path', () => {
-      africa.path.should.equal('af');
-      europe.path.should.equal('eu');
-      norway.path.should.equal('eu#no');
-      sweden.path.should.equal('eu#se');
-      stockholm.path.should.equal('eu#se#sthlm');
-      skansen.path.should.equal('eu#se#sthlm#skansen');
+      africa.path.should.equal('');
+      europe.path.should.equal('');
+      norway.path.should.equal('eu');
+      sweden.path.should.equal('eu');
+      stockholm.path.should.equal('#eu#se#');
+      skansen.path.should.equal('#eu#se#sthlm#');
     });
 
     it('should update child paths', async () => {
@@ -196,12 +192,12 @@ describe('mpath plugin', () => {
       const pathObject = locationsToPathObject(locations);
 
       pathObject.should.eql({
-        Africa: 'af',
-        Europe: 'eu',
-        Norway: 'eu#no',
-        Sweden: 'af#se',
-        Stockholm: 'af#se#sthlm',
-        Skansen: 'af#se#sthlm#skansen',
+        Africa: '',
+        Europe: '',
+        Norway: 'eu',
+        Sweden: 'af',
+        Stockholm: 'af#se',
+        Skansen: 'af#se#sthlm',
       });
     });
 
@@ -212,10 +208,7 @@ describe('mpath plugin', () => {
         name: String,
       });
       LocationSchema.plugin(MpathPlugin, { idType: String });
-      const LocationModel = mongoose.model(
-        'LocationWithStringAsIdType',
-        LocationSchema
-      );
+      const LocationModel = mongoose.model('LocationWithStringAsIdType', LocationSchema);
       await LocationModel.deleteMany({});
 
       const world = new LocationModel({ _id: 'wo', name: 'World', parent: '' });
@@ -232,11 +225,11 @@ describe('mpath plugin', () => {
       const pathObject = locationsToPathObject(locations);
 
       pathObject.should.eql({
-        Africa: 'af',
-        Europe: 'eu',
-        Norway: 'eu#no',
-        Stockholm: 'eu#se#sthlm',
-        Skansen: 'eu#se#sthlm#skansen',
+        Africa: '',
+        Europe: '',
+        Norway: '#eu#',
+        Stockholm: '#eu#se#',
+        Skansen: '#eu#se#sthlm#',
       });
     });
 
@@ -248,46 +241,46 @@ describe('mpath plugin', () => {
         const pathObject = locationsToPathObject(locations);
 
         pathObject.should.eql({
-          Africa: 'af',
-          Europe: 'eu',
-          Sweden: 'eu#se',
-          Stockholm: 'eu#se#sthlm',
-          Skansen: 'eu#se#sthlm#skansen',
+          Africa: '',
+          Europe: '',
+          Sweden: '#eu#',
+          Stockholm: '#eu#se#',
+          Skansen: '#eu#se#sthlm#',
         });
       });
 
-      it('should reparent when new parent is defined', async () => {
+      it('should reparent when higher level parent exist', async () => {
         await sweden.remove();
 
         const locations = await Location.find({});
         const pathObject = locationsToPathObject(locations);
 
         pathObject.should.eql({
-          Africa: 'af',
-          Europe: 'eu',
-          Norway: 'eu#no',
-          Stockholm: 'eu#sthlm',
-          Skansen: 'eu#sthlm#skansen',
+          Africa: '',
+          Europe: '',
+          Norway: '#eu#',
+          Stockholm: '#eu#',
+          Skansen: '#eu#sthlm#',
         });
       });
 
-      it('should reparent when new parent is undefined', async () => {
+      it('should reparent when higher level parent does not exist', async () => {
         await europe.remove();
 
         const locations = await Location.find({});
         const pathObject = locationsToPathObject(locations);
 
         pathObject.should.eql({
-          Africa: 'af',
-          Norway: 'no',
-          Sweden: 'se',
-          Stockholm: 'se#sthlm',
-          Skansen: 'se#sthlm#skansen',
+          Africa: '',
+          Norway: '',
+          Sweden: '',
+          Stockholm: '#se#',
+          Skansen: '#se#sthlm#',
         });
       });
     });
 
-    describe('using onDelete="DELETE"', () => {
+    describe.only('using onDelete="DELETE"', () => {
       before(async () => {
         // re-setup schema, model, database
         await mongoose.connection.close();
@@ -299,15 +292,13 @@ describe('mpath plugin', () => {
           onDelete: 'DELETE', // <- updated plugin option
         });
 
-        dbConnection = await mongoose.connect(
-          'mongodb://localhost:27017/mongoose-path-tree',
-          {
-            connectTimeoutMS: 3000,
-            keepAlive: 2000,
-            reconnectTries: 30,
-            useNewUrlParser: true,
-          }
-        );
+        dbConnection = await mongoose.connect('mongodb://localhost:27017/mongoose-path-tree', {
+          connectTimeoutMS: 3000,
+          keepAlive: 2000,
+          reconnectTries: 30,
+          useNewUrlParser: true,
+          useUnifiedTopology: true,
+        });
 
         try {
           Location = mongoose.model('Location', LocationSchema);
@@ -327,9 +318,9 @@ describe('mpath plugin', () => {
         const pathObject = locationsToPathObject(locations);
 
         pathObject.should.eql({
-          Africa: 'af',
-          Europe: 'eu',
-          Norway: 'eu#no',
+          Africa: '',
+          Europe: '',
+          Norway: '#eu#',
         });
       });
     });
@@ -352,11 +343,7 @@ describe('mpath plugin', () => {
       const fields = null;
       const options = {};
 
-      const locations = await europe.getImmediateChildren(
-        conditions,
-        fields,
-        options
-      );
+      const locations = await europe.getImmediateChildren(conditions, fields, options);
 
       locations.map(l => l.name).should.eql(['Norway', 'Sweden']);
     });
@@ -366,11 +353,7 @@ describe('mpath plugin', () => {
       const fields = null;
       const options = {};
 
-      const locations = await europe.getImmediateChildren(
-        conditions,
-        fields,
-        options
-      );
+      const locations = await europe.getImmediateChildren(conditions, fields, options);
 
       locations.map(l => l.name).should.eql(['Norway']);
     });
@@ -380,11 +363,7 @@ describe('mpath plugin', () => {
       const fields = null;
       const options = {};
 
-      const locations = await europe.getImmediateChildren(
-        conditions,
-        fields,
-        options
-      );
+      const locations = await europe.getImmediateChildren(conditions, fields, options);
 
       locations.map(l => l.name).should.eql(['Norway']);
     });
@@ -394,11 +373,7 @@ describe('mpath plugin', () => {
       const fields = '_id';
       const options = { lean: true };
 
-      const locations = await europe.getImmediateChildren(
-        conditions,
-        fields,
-        options
-      );
+      const locations = await europe.getImmediateChildren(conditions, fields, options);
       locations.should.eql([{ _id: 'no' }, { _id: 'se' }]);
     });
 
@@ -411,16 +386,9 @@ describe('mpath plugin', () => {
           lean: true,
         };
 
-        const locations = await europe.getImmediateChildren(
-          conditions,
-          fields,
-          options
-        );
+        const locations = await europe.getImmediateChildren(conditions, fields, options);
 
-        locations.should.eql([
-          { _id: 'no', name: 'Norway' },
-          { _id: 'se', name: 'Sweden' },
-        ]);
+        locations.should.eql([{ _id: 'no', name: 'Norway' }, { _id: 'se', name: 'Sweden' }]);
       });
 
       it('DESC', async () => {
@@ -431,16 +399,9 @@ describe('mpath plugin', () => {
           lean: true,
         };
 
-        const locations = await europe.getImmediateChildren(
-          conditions,
-          fields,
-          options
-        );
+        const locations = await europe.getImmediateChildren(conditions, fields, options);
 
-        locations.should.eql([
-          { _id: 'se', name: 'Sweden' },
-          { _id: 'no', name: 'Norway' },
-        ]);
+        locations.should.eql([{ _id: 'se', name: 'Sweden' }, { _id: 'no', name: 'Norway' }]);
       });
     });
   });
@@ -451,15 +412,9 @@ describe('mpath plugin', () => {
       const fields = null;
       const options = {};
 
-      const locations = await europe.getAllChildren(
-        conditions,
-        fields,
-        options
-      );
+      const locations = await europe.getAllChildren(conditions, fields, options);
 
-      locations
-        .map(l => l.name)
-        .should.eql(['Norway', 'Sweden', 'Stockholm', 'Skansen']);
+      locations.map(l => l.name).should.eql(['Norway', 'Sweden', 'Stockholm', 'Skansen']);
     });
 
     it('using conditions (object)', async () => {
@@ -467,11 +422,7 @@ describe('mpath plugin', () => {
       const fields = null;
       const options = {};
 
-      const locations = await europe.getAllChildren(
-        conditions,
-        fields,
-        options
-      );
+      const locations = await europe.getAllChildren(conditions, fields, options);
 
       locations.map(l => l.name).should.eql(['Stockholm']);
     });
@@ -481,11 +432,7 @@ describe('mpath plugin', () => {
       const fields = null;
       const options = {};
 
-      const locations = await europe.getAllChildren(
-        conditions,
-        fields,
-        options
-      );
+      const locations = await europe.getAllChildren(conditions, fields, options);
 
       locations.map(l => l.name).should.eql(['Stockholm']);
     });
@@ -495,18 +442,9 @@ describe('mpath plugin', () => {
       const fields = '_id';
       const options = { lean: true };
 
-      const locations = await europe.getAllChildren(
-        conditions,
-        fields,
-        options
-      );
+      const locations = await europe.getAllChildren(conditions, fields, options);
 
-      locations.should.eql([
-        { _id: 'no' },
-        { _id: 'se' },
-        { _id: 'sthlm' },
-        { _id: 'skansen' },
-      ]);
+      locations.should.eql([{ _id: 'no' }, { _id: 'se' }, { _id: 'sthlm' }, { _id: 'skansen' }]);
     });
 
     describe('using options (sort)', () => {
@@ -518,11 +456,7 @@ describe('mpath plugin', () => {
           lean: true,
         };
 
-        const locations = await europe.getAllChildren(
-          conditions,
-          fields,
-          options
-        );
+        const locations = await europe.getAllChildren(conditions, fields, options);
 
         locations.should.eql([
           { _id: 'no', name: 'Norway' },
@@ -540,11 +474,7 @@ describe('mpath plugin', () => {
           lean: true,
         };
 
-        const locations = await europe.getAllChildren(
-          conditions,
-          fields,
-          options
-        );
+        const locations = await europe.getAllChildren(conditions, fields, options);
 
         locations.should.eql([
           { _id: 'se', name: 'Sweden' },
@@ -593,11 +523,7 @@ describe('mpath plugin', () => {
       const fields = null;
       const options = {};
 
-      const locations = await stockholm.getAncestors(
-        conditions,
-        fields,
-        options
-      );
+      const locations = await stockholm.getAncestors(conditions, fields, options);
 
       locations.map(l => l.name).should.eql(['Europe', 'Sweden']);
     });
@@ -607,11 +533,7 @@ describe('mpath plugin', () => {
       const fields = null;
       const options = {};
 
-      const locations = await stockholm.getAncestors(
-        conditions,
-        fields,
-        options
-      );
+      const locations = await stockholm.getAncestors(conditions, fields, options);
 
       locations.map(l => l.name).should.eql(['Europe']);
     });
@@ -621,11 +543,7 @@ describe('mpath plugin', () => {
       const fields = null;
       const options = {};
 
-      const locations = await stockholm.getAncestors(
-        conditions,
-        fields,
-        options
-      );
+      const locations = await stockholm.getAncestors(conditions, fields, options);
 
       locations.map(l => l.name).should.eql(['Europe']);
     });
@@ -635,11 +553,7 @@ describe('mpath plugin', () => {
       const fields = '_id';
       const options = { lean: true };
 
-      const locations = await stockholm.getAncestors(
-        conditions,
-        fields,
-        options
-      );
+      const locations = await stockholm.getAncestors(conditions, fields, options);
 
       locations.should.eql([{ _id: 'eu' }, { _id: 'se' }]);
     });
@@ -652,11 +566,7 @@ describe('mpath plugin', () => {
         lean: true,
       };
 
-      const locations = await stockholm.getAncestors(
-        conditions,
-        fields,
-        options
-      );
+      const locations = await stockholm.getAncestors(conditions, fields, options);
 
       locations.should.eql([{ _id: 'se' }, { _id: 'eu' }]);
     });
@@ -670,7 +580,7 @@ describe('mpath plugin', () => {
           _id: 'af',
           children: [],
           name: 'Africa',
-          path: 'af',
+          path: '',
         },
         {
           __v: 0,
@@ -682,7 +592,7 @@ describe('mpath plugin', () => {
               children: [],
               name: 'Norway',
               parent: 'eu',
-              path: 'eu#no',
+              path: '#eu#',
             },
             {
               __v: 0,
@@ -698,21 +608,21 @@ describe('mpath plugin', () => {
                       children: [],
                       name: 'Skansen',
                       parent: 'sthlm',
-                      path: 'eu#se#sthlm#skansen',
+                      path: '#eu#se#',
                     },
                   ],
                   name: 'Stockholm',
                   parent: 'se',
-                  path: 'eu#se#sthlm',
+                  path: '#eu#se#',
                 },
               ],
               name: 'Sweden',
               parent: 'eu',
-              path: 'eu#se',
+              path: '#eu#',
             },
           ],
           name: 'Europe',
-          path: 'eu',
+          path: '',
         },
       ];
 
@@ -730,40 +640,40 @@ describe('mpath plugin', () => {
         {
           _id: 'af',
           name: 'Africa',
-          path: 'af',
+          path: '',
           children: [],
         },
         {
           _id: 'eu',
           name: 'Europe',
-          path: 'eu',
+          path: '',
           children: [
             {
               _id: 'no',
 
               name: 'Norway',
               parent: 'eu',
-              path: 'eu#no',
+              path: '#eu#',
               children: [],
             },
             {
               _id: 'se',
               name: 'Sweden',
               parent: 'eu',
-              path: 'eu#se',
+              path: '#eu#',
               children: [
                 {
                   _id: 'sthlm',
                   name: 'Stockholm',
                   parent: 'se',
-                  path: 'eu#se#sthlm',
+                  path: '#eu#se#',
                   children: [
                     {
                       _id: 'skansen',
                       children: [],
                       name: 'Skansen',
                       parent: 'sthlm',
-                      path: 'eu#se#sthlm#skansen',
+                      path: '#eu#se#sthlm#',
                     },
                   ],
                 },
@@ -792,12 +702,12 @@ describe('mpath plugin', () => {
               children: [],
               name: 'Skansen',
               parent: 'sthlm',
-              path: 'eu#se#sthlm#skansen',
+              path: '#eu#se#sthlm#',
             },
           ],
           name: 'Stockholm',
           parent: 'se',
-          path: 'eu#se#sthlm',
+          path: '#eu#se#',
         },
       ];
 
@@ -820,12 +730,12 @@ describe('mpath plugin', () => {
               children: [],
               name: 'Skansen',
               parent: 'sthlm',
-              path: 'eu#se#sthlm#skansen',
+              path: '#eu#se#sthlm#',
             },
           ],
           name: 'Stockholm',
           parent: 'se',
-          path: 'eu#se#sthlm',
+          path: '#eu#se#',
         },
       ];
 
@@ -858,14 +768,14 @@ describe('mpath plugin', () => {
           _id: 'sthlm',
           name: 'Stockholm',
           parent: 'se',
-          path: 'eu#se#sthlm',
+          path: '#eu#se#',
           children: [
             {
               _id: 'skansen',
               children: [],
               name: 'Skansen',
               parent: 'sthlm',
-              path: 'eu#se#sthlm#skansen',
+              path: '#eu#se#sthlm#',
             },
           ],
         },
@@ -889,14 +799,14 @@ describe('mpath plugin', () => {
             _id: 'no',
             name: 'Norway',
             parent: 'eu',
-            path: 'eu#no',
+            path: '#eu#',
             children: [],
           },
           {
             _id: 'se',
             name: 'Sweden',
             parent: 'eu',
-            path: 'eu#se',
+            path: '#eu#',
             children: [],
           },
         ]);
@@ -918,14 +828,14 @@ describe('mpath plugin', () => {
             _id: 'se',
             name: 'Sweden',
             parent: 'eu',
-            path: 'eu#se',
+            path: '#eu#',
             children: [],
           },
           {
             _id: 'no',
             name: 'Norway',
             parent: 'eu',
-            path: 'eu#no',
+            path: '#eu#',
             children: [],
           },
         ]);
@@ -940,30 +850,30 @@ describe('mpath plugin', () => {
       level = MpathPlugin.util.getLevelByPathAndSeparator('', '#');
       level.should.equal(1);
 
-      level = MpathPlugin.util.getLevelByPathAndSeparator('foo', '#');
-      level.should.equal(1);
-
-      level = MpathPlugin.util.getLevelByPathAndSeparator('foo#bar', '#');
+      level = MpathPlugin.util.getLevelByPathAndSeparator('#foo#', '#');
       level.should.equal(2);
+
+      level = MpathPlugin.util.getLevelByPathAndSeparator('#foo#bar#', '#');
+      level.should.equal(3);
     });
 
     describe('should createTree', () => {
       it('default options', () => {
         const nodes = [
-          { _id: 'eu', name: 'Europe', parent: '', path: 'eu' },
-          { _id: 'no', name: 'Norway', parent: 'eu', path: 'eu#no' },
-          { _id: 'se', name: 'Sweden', parent: 'eu', path: 'eu#se' },
+          { _id: 'eu', name: 'Europe', parent: '', path: '' },
+          { _id: 'no', name: 'Norway', parent: 'eu', path: '#eu#' },
+          { _id: 'se', name: 'Sweden', parent: 'eu', path: '#eu#' },
           {
             _id: 'sthlm',
             name: 'Stockholm',
             parent: 'se',
-            path: 'eu#se#sthlm',
+            path: '#eu#se#',
           },
           {
             _id: 'skansen',
             name: 'Skansen',
             parent: 'sthlm',
-            path: 'eu#se#sthlm#skansen',
+            path: '#eu#se#sthlm#',
           },
         ];
 
@@ -972,32 +882,32 @@ describe('mpath plugin', () => {
             _id: 'eu',
             name: 'Europe',
             parent: '',
-            path: 'eu',
+            path: '',
             children: [
               {
                 _id: 'no',
                 name: 'Norway',
                 parent: 'eu',
-                path: 'eu#no',
+                path: '#eu#',
                 children: [],
               },
               {
                 _id: 'se',
                 name: 'Sweden',
                 parent: 'eu',
-                path: 'eu#se',
+                path: '#eu#',
                 children: [
                   {
                     _id: 'sthlm',
                     name: 'Stockholm',
                     parent: 'se',
-                    path: 'eu#se#sthlm',
+                    path: '#eu#se#',
                     children: [
                       {
                         _id: 'skansen',
                         name: 'Skansen',
                         parent: 'sthlm',
-                        path: 'eu#se#sthlm#skansen',
+                        path: '#eu#se#sthlm#',
                         children: [],
                       },
                     ],
@@ -1014,10 +924,10 @@ describe('mpath plugin', () => {
 
       describe('using sort', () => {
         const nodes = [
-          { _id: 'af', name: 'Africa', parent: '', path: 'af' },
-          { _id: 'eu', name: 'Europe', parent: '', path: 'eu' },
-          { _id: 'se', name: 'Sweden', parent: 'eu', path: 'eu#se' },
-          { _id: 'no', name: 'Norway', parent: 'eu', path: 'eu#no' },
+          { _id: 'af', name: 'Africa', parent: '', path: '' },
+          { _id: 'eu', name: 'Europe', parent: '', path: '' },
+          { _id: 'se', name: 'Sweden', parent: 'eu', path: '#eu#' },
+          { _id: 'no', name: 'Norway', parent: 'eu', path: '#eu#' },
         ];
 
         it('ASC', () => {
@@ -1026,27 +936,27 @@ describe('mpath plugin', () => {
               _id: 'af',
               name: 'Africa',
               parent: '',
-              path: 'af',
+              path: '',
               children: [],
             },
             {
               _id: 'eu',
               name: 'Europe',
               parent: '',
-              path: 'eu',
+              path: '',
               children: [
                 {
                   _id: 'no',
                   name: 'Norway',
                   parent: 'eu',
-                  path: 'eu#no',
+                  path: '#eu#',
                   children: [],
                 },
                 {
                   _id: 'se',
                   name: 'Sweden',
                   parent: 'eu',
-                  path: 'eu#se',
+                  path: '#eu#',
                   children: [],
                 },
               ],
@@ -1063,20 +973,20 @@ describe('mpath plugin', () => {
               _id: 'eu',
               name: 'Europe',
               parent: '',
-              path: 'eu',
+              path: '',
               children: [
                 {
                   _id: 'se',
                   name: 'Sweden',
                   parent: 'eu',
-                  path: 'eu#se',
+                  path: '#eu#',
                   children: [],
                 },
                 {
                   _id: 'no',
                   name: 'Norway',
                   parent: 'eu',
-                  path: 'eu#no',
+                  path: '#eu#',
                   children: [],
                 },
               ],
@@ -1085,7 +995,7 @@ describe('mpath plugin', () => {
               _id: 'af',
               name: 'Africa',
               parent: '',
-              path: 'af',
+              path: '',
               children: [],
             },
           ];
@@ -1101,10 +1011,7 @@ describe('mpath plugin', () => {
         [{}, { keys: [], orders: [] }],
         [{ name: 1 }, { keys: ['name'], orders: ['asc'] }],
         [{ name: -1 }, { keys: ['name'], orders: ['desc'] }],
-        [
-          { name: 1, title: -1 },
-          { keys: ['name', 'title'], orders: ['asc', 'desc'] },
-        ],
+        [{ name: 1, title: -1 }, { keys: ['name', 'title'], orders: ['asc', 'desc'] }],
       ];
 
       testsValues.forEach(value => {
