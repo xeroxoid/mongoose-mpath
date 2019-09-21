@@ -50,19 +50,19 @@ At this point in mongoDB you will have documents similar to
 {
   "_id" : ObjectId("50136e40c78c4b9403000001"),
   "name" : "europe",
-  "path" : "50136e40c78c4b9403000001"
+  "path" : ""
 }
 {
   "_id" : ObjectId("50136e40c78c4b9403000002"),
   "name" : "sweden",
   "parent" : ObjectId("50136e40c78c4b9403000001"),
-  "path" : "50136e40c78c4b9403000001#50136e40c78c4b9403000002"
+  "path" : "#50136e40c78c4b9403000001#"
 }
 {
   "_id" : ObjectId("50136e40c78c4b9403000003"),
   "name" : "stockholm",
   "parent" : ObjectId("50136e40c78c4b9403000002"),
-  "path" : "50136e40c78c4b9403000001#50136e40c78c4b9403000002#50136e40c78c4b9403000003"
+  "path" : "#50136e40c78c4b9403000001#50136e40c78c4b9403000002#"
 }
 ```
 
@@ -99,7 +99,7 @@ document.getAncestors(conditions, [fields], [options])
 
 **Example**
 ```javascript
-const ancestors = await stockholm.getAncestors({});    // (Array) [europe, sweden]
+const ancestors = await stockholm.getAncestors();    // (Array) [europe, sweden]
 ```
 
 ### getAllChildren()
