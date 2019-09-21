@@ -85,7 +85,7 @@ describe('mpath plugin', () => {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
-    
+
     try {
       Location = mongoose.model('Location', LocationSchema);
     } catch (ex) {
@@ -103,9 +103,7 @@ describe('mpath plugin', () => {
     it('should add fields to schema (default options)', () => {
       const DefaultLocationSchema = new mongoose.Schema({ name: String });
       DefaultLocationSchema.plugin(MpathPlugin);
-
       const LocationModel = dbConnection.model('SomeLocation', DefaultLocationSchema);
-
       const schemaPaths = LocationModel.schema.paths;
 
       should.exist(schemaPaths.parent);
@@ -120,19 +118,15 @@ describe('mpath plugin', () => {
         name: String,
       });
 
-      const pluginOptions = {
+      CustomLocationSchema.plugin(MpathPlugin, {
         idType: String,
         pathSeparator: '|',
-      };
-
-      CustomLocationSchema.plugin(MpathPlugin, pluginOptions);
-
+      });
       const CustomLocationModel = mongoose.model('SomeOtherLocation', CustomLocationSchema);
-
       const schemaPaths = CustomLocationModel.schema.paths;
 
       // check parent type
-      schemaPaths.parent.options.type.should.eql(String);
+      schemaPaths.parent.instance.should.eql('String');
 
       // check path separator
       const world = new CustomLocationModel({ name: 'World' });
@@ -280,7 +274,7 @@ describe('mpath plugin', () => {
       });
     });
 
-    describe.only('using onDelete="DELETE"', () => {
+    describe('using onDelete="DELETE"', () => {
       before(async () => {
         // re-setup schema, model, database
         await mongoose.connection.close();
