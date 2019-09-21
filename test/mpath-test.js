@@ -245,7 +245,6 @@ describe('mpath plugin', () => {
 
       it('should reparent when higher level parent exist', async () => {
         await sweden.remove();
-
         const locations = await Location.find({});
         const pathObject = locationsToPathObject(locations);
 
@@ -260,7 +259,6 @@ describe('mpath plugin', () => {
 
       it('should reparent when higher level parent does not exist', async () => {
         await europe.remove();
-
         const locations = await Location.find({});
         const pathObject = locationsToPathObject(locations);
 
@@ -567,63 +565,6 @@ describe('mpath plugin', () => {
   });
 
   describe('getChildrenTree()', () => {
-    it('static method - no args', async () => {
-      const expectedTree = [
-        {
-          __v: 0,
-          _id: 'af',
-          children: [],
-          name: 'Africa',
-          path: '',
-        },
-        {
-          __v: 0,
-          _id: 'eu',
-          children: [
-            {
-              __v: 0,
-              _id: 'no',
-              children: [],
-              name: 'Norway',
-              parent: 'eu',
-              path: '#eu#',
-            },
-            {
-              __v: 0,
-              _id: 'se',
-              children: [
-                {
-                  __v: 0,
-                  _id: 'sthlm',
-                  children: [
-                    {
-                      __v: 0,
-                      _id: 'skansen',
-                      children: [],
-                      name: 'Skansen',
-                      parent: 'sthlm',
-                      path: '#eu#se#',
-                    },
-                  ],
-                  name: 'Stockholm',
-                  parent: 'se',
-                  path: '#eu#se#',
-                },
-              ],
-              name: 'Sweden',
-              parent: 'eu',
-              path: '#eu#',
-            },
-          ],
-          name: 'Europe',
-          path: '',
-        },
-      ];
-
-      const locationTree = await Location.getChildrenTree();
-      locationTree.should.containSubset(expectedTree);
-    });
-
     it('static method - args', async () => {
       const args = {
         fields: '_id name parent path',
@@ -644,7 +585,6 @@ describe('mpath plugin', () => {
           children: [
             {
               _id: 'no',
-
               name: 'Norway',
               parent: 'eu',
               path: '#eu#',
@@ -914,102 +854,6 @@ describe('mpath plugin', () => {
 
         const result = MpathPlugin.util.listToTree(nodes);
         result.should.eql(expectedTree);
-      });
-
-      describe('using sort', () => {
-        const nodes = [
-          { _id: 'af', name: 'Africa', parent: '', path: '' },
-          { _id: 'eu', name: 'Europe', parent: '', path: '' },
-          { _id: 'se', name: 'Sweden', parent: 'eu', path: '#eu#' },
-          { _id: 'no', name: 'Norway', parent: 'eu', path: '#eu#' },
-        ];
-
-        it('ASC', () => {
-          const expectedTree = [
-            {
-              _id: 'af',
-              name: 'Africa',
-              parent: '',
-              path: '',
-              children: [],
-            },
-            {
-              _id: 'eu',
-              name: 'Europe',
-              parent: '',
-              path: '',
-              children: [
-                {
-                  _id: 'no',
-                  name: 'Norway',
-                  parent: 'eu',
-                  path: '#eu#',
-                  children: [],
-                },
-                {
-                  _id: 'se',
-                  name: 'Sweden',
-                  parent: 'eu',
-                  path: '#eu#',
-                  children: [],
-                },
-              ],
-            },
-          ];
-
-          const result = MpathPlugin.util.listToTree(nodes, { name: 1 });
-          result.should.eql(expectedTree);
-        });
-
-        it('DESC', () => {
-          const expectedTree = [
-            {
-              _id: 'eu',
-              name: 'Europe',
-              parent: '',
-              path: '',
-              children: [
-                {
-                  _id: 'se',
-                  name: 'Sweden',
-                  parent: 'eu',
-                  path: '#eu#',
-                  children: [],
-                },
-                {
-                  _id: 'no',
-                  name: 'Norway',
-                  parent: 'eu',
-                  path: '#eu#',
-                  children: [],
-                },
-              ],
-            },
-            {
-              _id: 'af',
-              name: 'Africa',
-              parent: '',
-              path: '',
-              children: [],
-            },
-          ];
-
-          const result = MpathPlugin.util.listToTree(nodes, { name: -1 });
-          result.should.eql(expectedTree);
-        });
-      });
-    });
-
-    it('should mongoSortToLodashSort', () => {
-      const testsValues = [
-        [{}, { keys: [], orders: [] }],
-        [{ name: 1 }, { keys: ['name'], orders: ['asc'] }],
-        [{ name: -1 }, { keys: ['name'], orders: ['desc'] }],
-        [{ name: 1, title: -1 }, { keys: ['name', 'title'], orders: ['asc', 'desc'] }],
-      ];
-
-      testsValues.forEach(value => {
-        MpathPlugin.util.mongoSortToLodashSort(value[0]).should.eql(value[1]);
       });
     });
   });
