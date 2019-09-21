@@ -115,8 +115,8 @@ document.getAllChildren(conditions, [fields], [options])
 
 **Example**
 ```javascript
-const children = await sweden.getAllChildren({});       // (Array) [stockholm, skansen]
-const children = await stockholm.getAllChildren({});    // (Array) [skansen]
+const children = await sweden.getAllChildren();       // (Array) [stockholm, skansen]
+const children = await stockholm.getAllChildren();    // (Array) [skansen]
 ```
 
 ### getChildrenTree()
@@ -154,7 +154,7 @@ model.getChildrenTree([args])       // as static
 
 **Example**
 ```javascript
-const tree = await sweden.getChildrenTree({});
+const tree = await sweden.getChildrenTree();
 // tree is an array similar to
 /*
 [
@@ -184,8 +184,8 @@ document.getImmediateChildren(conditions, [fields], [options])
 
 **Example**
 ```javascript
-const children = await europe.getImmediateChildren({});    // (Array) [norway, sweden]
-const children = await sweden.getImmediateChildren({});    // (Array) [stockholm]
+const children = await europe.getImmediateChildren();    // (Array) [norway, sweden]
+const children = await sweden.getImmediateChildren();    // (Array) [stockholm]
 ```
 
 ### getParent()
