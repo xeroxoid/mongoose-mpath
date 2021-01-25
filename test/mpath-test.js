@@ -107,7 +107,6 @@ describe('mpath plugin', () => {
       );
 
       const schemaPaths = LocationModel.schema.paths;
-      should.exist(schemaPaths.children);
       should.exist(schemaPaths.parent);
       should.exist(schemaPaths.path);
     });
